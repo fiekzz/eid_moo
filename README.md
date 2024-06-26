@@ -2,8 +2,7 @@
 
 - Group Name : Default mobile
 - Group Member : 
-1. LUQMAN ALHAKIM BIN YAZID 2019079		
-2. FIKRI BIN HISHAM-MUDDIN 2112011
+1. FIKRI BIN HISHAM-MUDDIN 2112011
 
 ## Description of the project
 ### Introduction
