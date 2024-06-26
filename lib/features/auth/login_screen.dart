@@ -1,6 +1,7 @@
 import 'package:eid_moo/features/auth/signup_screen.dart';
-import 'package:eid_moo/features/general/home_screen.dart';
+import 'package:eid_moo/shared/components/em_bottomnavbar.dart';
 import 'package:eid_moo/shared/components/em_button.dart';
+import 'package:eid_moo/shared/components/em_fetch.dart';
 import 'package:eid_moo/shared/components/em_text_field.dart';
 import 'package:eid_moo/shared/utils/firebase/em_auth_instance.dart';
 import 'package:eid_moo/shared/utils/theme/em_theme.dart';
@@ -49,36 +50,54 @@ class _LoginScreenState extends State<LoginScreen> {
 
         final userItem = authResponse?.userCredential;
 
-        Future.wait([
-          storage.write(
-            key: 'uid',
-            value: userItem?.user?.uid ?? '',
-          ),
-          storage.write(
-            key: 'email',
-            value: userItem?.user?.email ?? '',
-          ),
-          storage.write(
-            key: 'displayName',
-            value: userItem?.user?.displayName ?? '',
-          ),
-          storage.write(
-            key: 'photoURL',
-            value: userItem?.user?.photoURL ?? '',
-          ),
-          storage.write(
-            key: 'refreshToken',
-            value: userItem?.user?.refreshToken ?? '',
-          ),
-        ]);
+        final userCandidate = userItem?.user;
 
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const HomeScreen(),
-          ),
-          (route) => false,
-        );
+        if (userCandidate != null) {
+          final item = await userCandidate.getIdToken();
+
+          try {
+            final response = await EMFetch(
+              '/auth/user-login',
+              method: EMFetchMethod.POST,
+              body: {
+                'uid': userCandidate.uid,
+                'email': userCandidate.email,
+                'displayName': userCandidate.displayName,
+                'idToken': item,
+              },
+            ).request();
+
+            if (response['success']) {
+              storage.write(key: 'token', value: response['data']['token']);
+
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const EMBottomNavbar(),
+                ),
+                (route) => false,
+              );
+            } else {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(response['message'] ?? 'An error occurred'),
+                  ),
+                );
+              }
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    e.toString(),
+                  ),
+                ),
+              );
+            }
+          }
+        }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -243,9 +262,75 @@ class _LoginScreenState extends State<LoginScreen> {
                               authResponse =
                                   await EMAuthInstance.signInWithGoogle();
 
-                              if (authResponse?.status ?? false) {
-                                print(
-                                    authResponse?.userCredential?.user?.email);
+                              if ((authResponse?.status ?? false) && mounted) {
+                                final userItem = authResponse?.userCredential;
+
+                                final userCandidate = userItem?.user;
+
+                                if (userCandidate != null) {
+                                  final idToken =
+                                      await userCandidate.getIdToken();
+
+                                  try {
+                                    final response = await EMFetch(
+                                      '/auth/user-login',
+                                      method: EMFetchMethod.POST,
+                                      body: {
+                                        'uid': userCandidate.uid,
+                                        'email': userCandidate.email,
+                                        'displayName':
+                                            userCandidate.displayName ?? '',
+                                        'idToken': idToken,
+                                      },
+                                    ).request();
+
+                                    if (response['success']) {
+                                      const storage = FlutterSecureStorage();
+
+                                      storage.write(
+                                          key: 'token',
+                                          value: response['data']['token'] ?? '');
+
+                                      Navigator.pushAndRemoveUntil(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const EMBottomNavbar(),
+                                        ),
+                                        (route) => false,
+                                      );
+                                    } else {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(response['message'] ??
+                                                'An error occurred'),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            e.toString(),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+
+                                // Navigator.pushAndRemoveUntil(
+                                //   context,
+                                //   MaterialPageRoute(
+                                //     builder: (_) => const EMBottomNavbar(),
+                                //   ),
+                                //   (route) => false,
+                                // );
                               }
                             },
                             icon: const Icon(

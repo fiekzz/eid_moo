@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:eid_moo/features/auth/login_screen.dart';
-import 'package:eid_moo/main.dart';
+import 'package:eid_moo/shared/components/em_bottomnavbar.dart';
 import 'package:eid_moo/shared/components/em_button.dart';
+import 'package:eid_moo/shared/components/em_fetch.dart';
 import 'package:eid_moo/shared/utils/firebase/em_auth_instance.dart';
 import 'package:eid_moo/shared/utils/theme/em_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:ionicons/ionicons.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -16,15 +20,16 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
-
-  // UserCredential? userCredential;
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
 
   AuthResponse? authResponse;
 
   FocusNode emailFocusNode = FocusNode();
   FocusNode passwordFocusNode = FocusNode();
   FocusNode confirmPasswordFocusNode = FocusNode();
+  FocusNode nameFocusNode = FocusNode();
 
   final signUpFormKey = GlobalKey<FormState>();
 
@@ -32,7 +37,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Future<void> _signUp() async {
     if (signUpFormKey.currentState!.validate()) {
-
       if (_passwordController.text == _confirmPasswordController.text) {
         authResponse = await EMAuthInstance.signUpWithEmail(
           email: _emailController.text,
@@ -42,15 +46,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
         print(authResponse?.status);
 
         if (authResponse?.status ?? false) {
-          
-          Navigator.pushAndRemoveUntil(
-            navigatorKey.currentContext!,
-            MaterialPageRoute(
-              builder: (_) => const LoginScreen(),
-            ),
-            (route) => false,
-          );
+          final response = await EMFetch(
+            '/auth/user-signup',
+            method: EMFetchMethod.POST,
+            body: {
+              'idToken': authResponse?.userCredential?.user?.getIdToken() ?? '',
+              'name': _nameController.text,
+            },
+          ).request();
 
+          if (response['success']) {
+            const storage = FlutterSecureStorage();
+
+            await storage.write(key: 'token', value: response['data']['token']);
+
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const EMBottomNavbar(),
+              ),
+              (route) => false,
+            );
+          }
+
+          // Navigator.pushAndRemoveUntil(
+          //   navigatorKey.currentContext!,
+          //   MaterialPageRoute(
+          //     builder: (_) => const HomeScreen(),
+          //   ),
+          //   (route) => false,
+          // );
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -118,11 +143,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       height: 24,
                     ),
                     TextFormField(
+                      focusNode: nameFocusNode,
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(
+                          Ionicons.person,
+                          color: Colors.black,
+                          size: 26,
+                        ),
+                        labelText: 'Name',
+                        hintText: 'Name',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 12,
+                    ),
+                    TextFormField(
                       focusNode: emailFocusNode,
                       controller: _emailController,
                       decoration: InputDecoration(
                         prefixIcon: const Icon(
-                          Icons.email,
+                          Ionicons.mail,
                           color: Colors.black,
                           size: 26,
                         ),
@@ -142,7 +186,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       obscureText: true,
                       decoration: InputDecoration(
                         prefixIcon: const Icon(
-                          Icons.lock,
+                          Ionicons.lock_closed,
                           color: Colors.black,
                           size: 26,
                         ),
@@ -182,7 +226,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         isLoading: isLoading,
                         backgroundColor: EidMooTheme.primaryVariant,
                         onPressed: () async {
-
                           setState(() {
                             isLoading = true;
                           });
@@ -259,9 +302,70 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               authResponse =
                                   await EMAuthInstance.signInWithGoogle();
 
-                              if (authResponse?.status ?? false) {
-                                print(
-                                    authResponse?.userCredential?.user?.email);
+                              if ((authResponse?.status ?? false) && mounted) {
+                                final userItem = authResponse?.userCredential;
+
+                                final userCandidate = userItem?.user;
+
+                                if (userCandidate != null) {
+                                  final idToken =
+                                      await userCandidate.getIdToken();
+
+                                  try {
+                                    final response = await EMFetch(
+                                      '/auth/user-login',
+                                      method: EMFetchMethod.POST,
+                                      body: {
+                                        'uid': userCandidate.uid,
+                                        'email': userCandidate.email,
+                                        'displayName':
+                                            userCandidate.displayName ?? '',
+                                        'idToken': idToken,
+                                      },
+                                    ).request();
+
+                                    if (response['success']) {
+                                      const storage = FlutterSecureStorage();
+
+                                      print(jsonEncode(response));
+
+                                      storage.write(
+                                          key: 'token',
+                                          value: response['data']['token'] ?? '');
+
+                                      Navigator.pushAndRemoveUntil(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const EMBottomNavbar(),
+                                        ),
+                                        (route) => false,
+                                      );
+                                    } else {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(response['message'] ??
+                                                'An error occurred'),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            e.toString(),
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+
                               }
                             },
                             icon: const Icon(

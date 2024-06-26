@@ -1,7 +1,10 @@
-import 'package:eid_moo/features/auth/login_screen.dart';
+import 'package:eid_moo/features/accounts/history_screen.dart';
+import 'package:eid_moo/features/accounts/my_account_screen.dart';
+import 'package:eid_moo/features/accounts/my_masjid_screen.dart';
+import 'package:eid_moo/features/accounts/register_masjid_screen.dart';
 import 'package:eid_moo/features/auth/signup_screen.dart';
 import 'package:eid_moo/features/auth/welcome_screen.dart';
-import 'package:eid_moo/features/general/home_screen.dart';
+import 'package:eid_moo/shared/components/em_bottomnavbar.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +25,7 @@ void main() async {
 }
 
 final navigatorKey = GlobalKey<NavigatorState>();
+final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
@@ -46,9 +50,6 @@ class _MyAppState extends ConsumerState<MyApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      // home: EMAuthInstance.checkAuth()
-      //     ? const LoginScreen()
-      //     : const SignUpScreen(),
       home: FutureBuilder(
         future: storage.readAll(),
         builder: (context, snapshot) {
@@ -62,8 +63,8 @@ class _MyAppState extends ConsumerState<MyApp> {
 
             final secureStorage = snapshot.data as Map<String, String>;
 
-            if (secureStorage['refreshToken'] != null) {
-              return const HomeScreen();
+            if (secureStorage['token'] != null) {
+              return const EMBottomNavbar();
             } else {
               return const WelcomeScreen();
             }
@@ -73,6 +74,12 @@ class _MyAppState extends ConsumerState<MyApp> {
 
         },
       ),
+      routes: {
+        '/account/my-account': (context) => const MyAccountScreen(),
+        '/account/history': (context) => const HistoryScreen(),
+        '/account/register-masjid': (context) => const RegisterMasjidScreen(),
+        '/account/my-masjid': (context) => const MyMasjidScreen(),
+      },
     );
   }
 }
