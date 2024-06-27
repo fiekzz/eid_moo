@@ -39,6 +39,10 @@ The objective of the app is to streamline and simplify the process of reserving 
 ### Sequence Diagram
 ![Sequence Diagram drawio](https://github.com/lqmanalhakim/eid_moo/assets/133849888/b91195b0-695e-4c74-b3a1-e1cd6808b13e)
 
+### Database Schema
+![Database](https://github.com/fiekzz/eid_moo/assets/75507209/f80eede5-7ff0-459b-866b-146b2270d4e3)
+
+
 ### Project Screenshots
 [Eidmoo](https://drive.google.com/drive/folders/1iV3-mx8p-ALE1UeWEbSjI4W0aQB6bkS7?usp=sharing)
 
